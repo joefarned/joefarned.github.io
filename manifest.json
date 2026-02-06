@@ -1,0 +1,22 @@
+{
+  "name": "Mini Civ Rev 2",
+  "short_name": "MiniCiv",
+  "description": "A mini Civilization Revolution 2 tribute game",
+  "start_url": "/civ-game.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a2e",
+  "theme_color": "#0a0a2e",
+  "icons": [
+    {
+      "src": "civ-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "civ-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
