@@ -12,8 +12,9 @@
 <link rel="apple-touch-icon" href="civ-icon-192.png">
 <title>Mini Civ Rev 2</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
-html, body { background: #0a0a2e; color: #e0e0e0; font-family: -apple-system, 'SF Pro', 'Segoe UI', Arial, sans-serif; overflow: hidden; height: 100%; width: 100%; position: fixed; touch-action: none; }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html { height: 100%; overflow: hidden; }
+body { background: #0a0a2e; color: #e0e0e0; font-family: -apple-system, 'SF Pro', 'Segoe UI', Arial, sans-serif; overflow: hidden; height: 100%; width: 100%; }
 
 /* Safe area padding for notch devices */
 :root {
@@ -24,7 +25,7 @@ html, body { background: #0a0a2e; color: #e0e0e0; font-family: -apple-system, 'S
 }
 
 /* ---- TITLE SCREEN ---- */
-#title-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: linear-gradient(180deg, #0a0a2e, #1a1a4e, #0a0a2e); padding: 20px; padding-top: calc(20px + var(--sat)); }
+#title-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: linear-gradient(180deg, #0a0a2e, #1a1a4e, #0a0a2e); padding: 20px; padding-top: calc(20px + var(--sat)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 #title-screen h1 { font-size: 38px; color: #ffd700; text-shadow: 2px 2px 8px rgba(255,215,0,0.4); margin-bottom: 4px; }
 #title-screen h2 { font-size: 14px; color: #aaa; margin-bottom: 24px; font-weight: normal; }
 .civ-select { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px; width: 100%; max-width: 400px; }
@@ -36,8 +37,8 @@ html, body { background: #0a0a2e; color: #e0e0e0; font-family: -apple-system, 'S
 #start-btn { background: linear-gradient(180deg, #8B6914, #6B4914); border: 2px solid #DAA520; color: #fff; padding: 16px 50px; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
 /* ---- GAME CONTAINER ---- */
-#game-container { display: none; width: 100%; height: 100%; position: relative; }
-#map-canvas { display: block; touch-action: none; }
+#game-container { display: none; width: 100%; height: 100%; position: relative; overflow: hidden; }
+#map-canvas { display: block; touch-action: none; -webkit-touch-callout: none; }
 
 /* ---- TOP HUD ---- */
 #top-hud { position: absolute; top: 0; left: 0; right: 0; padding-top: var(--sat); background: linear-gradient(180deg, rgba(10,10,30,0.95), rgba(10,10,30,0.85)); z-index: 10; border-bottom: 1px solid #333; }
@@ -369,68 +370,90 @@ function startGame() {
 }
 
 function resizeCanvas() {
-  canvasW=window.innerWidth; canvasH=window.innerHeight;
+  canvasW=window.innerWidth;
+  canvasH=window.innerHeight;
+  // iOS visual viewport fix
+  if(window.visualViewport) {
+    canvasW=window.visualViewport.width;
+    canvasH=window.visualViewport.height;
+  }
   if(canvas){canvas.width=canvasW;canvas.height=canvasH;}
-  hudHeight=document.getElementById('top-hud')?.offsetHeight||36;
-  bottomHeight=document.getElementById('bottom-panel')?.offsetHeight||80;
+  var hud=document.getElementById('top-hud');
+  var bp=document.getElementById('bottom-panel');
+  hudHeight=hud?hud.offsetHeight:36;
+  bottomHeight=bp?bp.offsetHeight:80;
 }
 
 // ============================================================
 // TOUCH & INPUT
 // ============================================================
 function setupInput() {
-  // Touch events
+  // Prevent iOS rubber-banding only on the game container
+  document.getElementById('game-container').addEventListener('touchmove', function(e) {
+    if(e.target===canvas||e.target===mmCanvas) e.preventDefault();
+  }, {passive:false});
+
+  // Touch events on canvas only
   canvas.addEventListener('touchstart', onTouchStart, {passive:false});
   canvas.addEventListener('touchmove', onTouchMove, {passive:false});
-  canvas.addEventListener('touchend', onTouchEnd, {passive:false});
+  canvas.addEventListener('touchend', onTouchEnd, {passive:true});
 
-  // Mouse fallback for desktop testing
-  canvas.addEventListener('mousedown', e=>{touchState={active:true,startX:e.clientX,startY:e.clientY,camX:G.cameraX,camY:G.cameraY,moved:false,pinching:false};});
-  canvas.addEventListener('mousemove', e=>{if(!touchState.active)return;let dx=e.clientX-touchState.startX,dy=e.clientY-touchState.startY;if(Math.abs(dx)>6||Math.abs(dy)>6)touchState.moved=true;if(touchState.moved){G.cameraX=touchState.camX-dx;G.cameraY=touchState.camY-dy;clampCamera();}});
-  canvas.addEventListener('mouseup', e=>{if(!touchState.moved&&touchState.active){let tx=Math.floor((e.clientX+G.cameraX)/TILE_W),ty=Math.floor((e.clientY+G.cameraY)/TILE_H);handleTileClick(tx,ty);}touchState.active=false;});
-  canvas.addEventListener('contextmenu', e=>e.preventDefault());
+  // Mouse fallback for desktop
+  canvas.addEventListener('mousedown', function(e){touchState={active:true,startX:e.clientX,startY:e.clientY,camX:G.cameraX,camY:G.cameraY,moved:false,pinching:false};});
+  canvas.addEventListener('mousemove', function(e){if(!touchState.active)return;var dx=e.clientX-touchState.startX,dy=e.clientY-touchState.startY;if(Math.abs(dx)>6||Math.abs(dy)>6)touchState.moved=true;if(touchState.moved){G.cameraX=touchState.camX-dx;G.cameraY=touchState.camY-dy;clampCamera();}});
+  canvas.addEventListener('mouseup', function(e){if(!touchState.moved&&touchState.active){var tx=Math.floor((e.clientX+G.cameraX)/TILE_W),ty=Math.floor((e.clientY+G.cameraY)/TILE_H);handleTileClick(tx,ty);}touchState.active=false;});
+  canvas.addEventListener('contextmenu', function(e){e.preventDefault();});
 
-  // Minimap touch
-  mmCanvas.addEventListener('touchstart', e=>{e.preventDefault();mmClick(e.touches[0]);}, {passive:false});
-  mmCanvas.addEventListener('click', e=>mmClick(e));
+  // Minimap
+  mmCanvas.addEventListener('touchstart', function(e){e.preventDefault();mmClick(e.touches[0]);}, {passive:false});
+  mmCanvas.addEventListener('click', function(e){mmClick(e);});
 
   // Keyboard for desktop
-  document.addEventListener('keydown', e=>{
+  document.addEventListener('keydown', function(e){
     if(G.gameOver)return;
-    if(e.key==='Enter')endTurn(); if(e.key==='f'&&G.selectedUnit)fortifyUnit(G.selectedUnit);
-    if(e.key==='b'&&G.selectedUnit?.type==='settler')foundCity(G.selectedUnit);
-    if(e.key==='t')openTechTree(); if(e.key==='Escape'){closeCityModal();closeTechTree();}
-    let s=60;if(e.key==='ArrowUp')G.cameraY-=s;if(e.key==='ArrowDown')G.cameraY+=s;
+    if(e.key==='Enter')endTurn();
+    if(e.key==='f'&&G.selectedUnit)fortifyUnit(G.selectedUnit);
+    if(e.key==='b'&&G.selectedUnit&&G.selectedUnit.type==='settler')foundCity(G.selectedUnit);
+    if(e.key==='t')openTechTree();
+    if(e.key==='Escape'){closeCityModal();closeTechTree();}
+    var s=60;
+    if(e.key==='ArrowUp')G.cameraY-=s;if(e.key==='ArrowDown')G.cameraY+=s;
     if(e.key==='ArrowLeft')G.cameraX-=s;if(e.key==='ArrowRight')G.cameraX+=s;clampCamera();
   });
+
+  // iOS visual viewport resize
+  if(window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resizeCanvas);
+  }
 }
 
 function onTouchStart(e) {
+  // Only prevent default to stop scroll - not on touchend (which would block clicks)
   e.preventDefault();
   if(e.touches.length===2) {
     touchState.pinching=true;
     touchState.pinchDist=getTouchDist(e.touches);
     return;
   }
-  let t=e.touches[0];
+  var t=e.touches[0];
   touchState={active:true, startX:t.clientX, startY:t.clientY, camX:G.cameraX, camY:G.cameraY, moved:false, pinching:false, startTime:Date.now()};
 }
 
 function onTouchMove(e) {
   e.preventDefault();
-  if(touchState.pinching && e.touches.length===2) return; // ignore pinch for now
+  if(touchState.pinching && e.touches.length===2) return;
   if(!touchState.active||e.touches.length!==1) return;
-  let t=e.touches[0], dx=t.clientX-touchState.startX, dy=t.clientY-touchState.startY;
-  if(Math.abs(dx)>8||Math.abs(dy)>8) touchState.moved=true;
+  var t=e.touches[0], dx=t.clientX-touchState.startX, dy=t.clientY-touchState.startY;
+  if(Math.abs(dx)>10||Math.abs(dy)>10) touchState.moved=true;
   if(touchState.moved) { G.cameraX=touchState.camX-dx; G.cameraY=touchState.camY-dy; clampCamera(); }
 }
 
 function onTouchEnd(e) {
-  e.preventDefault();
+  // Do NOT preventDefault here - allows iOS to process properly
   if(touchState.pinching){touchState.pinching=false;return;}
   if(!touchState.moved && touchState.active) {
-    let tx=Math.floor((touchState.startX+G.cameraX)/TILE_W);
-    let ty=Math.floor((touchState.startY+G.cameraY)/TILE_H);
+    var tx=Math.floor((touchState.startX+G.cameraX)/TILE_W);
+    var ty=Math.floor((touchState.startY+G.cameraY)/TILE_H);
     handleTileClick(tx, ty);
   }
   touchState.active=false;
@@ -548,9 +571,9 @@ function resolveCombat(atk, def) {
   let ad=Math.max(1,as+Math.floor(Math.random()*3)-1);
   let dd=Math.max(1,ds+Math.floor(Math.random()*3)-1);
   def.hp-=ad; atk.hp-=dd;
-  if(def.hp<=0&&atk.hp<=0){notify("⚔️ Both destroyed!");G.units=G.units.filter(u=>u.id!==atk.id&&u.id!==def.id);if(G.selectedUnit)deselectUnit();}
-  else if(def.hp<=0){notify("⚔️ "+at.name+" wins!");atk.x=def.x;atk.y=def.y;G.units=G.units.filter(u=>u.id!==def.id);revealAround(atk.x,atk.y,2);}
-  else if(atk.hp<=0){notify("⚔️ "+dt.name+" repels!");G.units=G.units.filter(u=>u.id!==atk.id);if(G.selectedUnit?.id===atk.id)deselectUnit();}
+  if(def.hp<=0&&atk.hp<=0){notify("Both destroyed!");G.units=G.units.filter(u=>u.id!==atk.id&&u.id!==def.id);if(G.selectedUnit)deselectUnit();}
+  else if(def.hp<=0){notify(at.name+" wins!");atk.x=def.x;atk.y=def.y;G.units=G.units.filter(u=>u.id!==def.id);revealAround(atk.x,atk.y,2);}
+  else if(atk.hp<=0){notify(dt.name+" repels!");G.units=G.units.filter(u=>u.id!==atk.id);if(G.selectedUnit&&G.selectedUnit.id===atk.id)deselectUnit();}
   else notify("⚔️ "+at.name+"("+atk.hp+"hp) vs "+dt.name+"("+def.hp+"hp)");
   checkElimination();
 }
@@ -836,7 +859,7 @@ function darken(h,f){return`rgb(${Math.floor(parseInt(h.slice(1,3),16)*f)},${Mat
 // ============================================================
 // INIT & SERVICE WORKER
 // ============================================================
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(function(){});
 setupTitleScreen();
 </script>
 </body>

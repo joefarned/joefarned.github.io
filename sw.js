@@ -1,5 +1,5 @@
 const CACHE = 'miniciv-v1';
-const ASSETS = ['/civ-game.html', '/manifest.json'];
+const ASSETS = ['./civ-game.html', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

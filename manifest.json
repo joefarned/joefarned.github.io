@@ -2,7 +2,7 @@
   "name": "Mini Civ Rev 2",
   "short_name": "MiniCiv",
   "description": "A mini Civilization Revolution 2 tribute game",
-  "start_url": "/civ-game.html",
+  "start_url": "./civ-game.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a2e",
