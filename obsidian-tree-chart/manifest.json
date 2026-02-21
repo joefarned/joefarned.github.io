@@ -1,0 +1,9 @@
+{
+	"id": "obsidian-tree-chart",
+	"name": "Tree Chart",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Convert bulleted lists into interactive tree charts with drag, zoom, collapse/expand, and editing — like Xmind inside Obsidian.",
+	"author": "joefarned",
+	"isDesktopOnly": false
+}
